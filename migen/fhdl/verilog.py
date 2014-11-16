@@ -7,6 +7,35 @@ from migen.fhdl.tools import *
 from migen.fhdl.bitcontainer import bits_for, flen
 from migen.fhdl.namer import Namespace, build_namespace
 
+_reserved_names = [
+	'always', 'and', 'assign', 'automatic', 'begin', 'buf', 'bufif0',
+	'bufif1', 'case', 'casex', 'casez', 'cell', 'cmos', 'config',
+	'deassign', 'default', 'defparam', 'design', 'disable', 'edge', 'else',
+	'end', 'endcase', 'endconfig', 'endfunction', 'endgenerate',
+	'endmodule', 'endprimitive', 'endspecify', 'endtable', 'endtask',
+	'event', 'for', 'force', 'forever', 'fork', 'function', 'generate',
+	'genvar', 'highz0', 'highz1', 'if', 'ifnone', 'incdir', 'include',
+	'initial', 'inout', 'input', 'instance', 'integer', 'join', 'large',
+	'liblist', 'library', 'localparam', 'macromodule', 'medium', 'module',
+	'nand', 'negedge', 'nmos', 'nor', 'noshowcancelled', 'not', 'notif0',
+	'notif1', 'or', 'output', 'parameter', 'pmos', 'posedge', 'primitive',
+	'pull0', 'pull1', 'pulldown', 'pullup', 'pulsestyle_onevent',
+	'pulsestyle_ondetect', 'remos', 'real', 'realtime', 'reg', 'release',
+	'repeat', 'rnmos', 'rpmos', 'rtran', 'rtranif0', 'rtranif1',
+	'scalared', 'showcancelled', 'signed', 'small', 'specify', 'specparam',
+	'strong0', 'strong1', 'supply0', 'supply1', 'table', 'task', 'time',
+	'tran', 'tranif0', 'tranif1', 'tri', 'tri0', 'tri1', 'triand', 'trior',
+	'trireg', 'unsigned', 'use', 'vectored', 'wait', 'wand', 'weak0',
+	'weak1', 'while', 'wire', 'wor', 'xnor', 'xor',
+]
+
+def _get_name(ns, node):
+	name = ns.get_name(node)
+	if name in _reserved_names:
+		return '\\%s ' % name
+	else:
+		return name
+
 def _printsig(ns, s):
 	if s.signed:
 		n = "signed "
@@ -14,7 +43,7 @@ def _printsig(ns, s):
 		n = ""
 	if flen(s) > 1:
 		n += "[" + str(flen(s)-1) + ":0] "
-	n += ns.get_name(s)
+	n += _get_name(ns, s)
 	return n
 
 def _printintbool(node):
@@ -36,7 +65,7 @@ def _printexpr(ns, node):
 	if isinstance(node, (int, bool)):
 		return _printintbool(node)
 	elif isinstance(node, Signal):
-		return ns.get_name(node), node.signed
+		return _get_name(ns, node), node.signed
 	elif isinstance(node, _Operator):
 		arity = len(node.operands)
 		r1, s1 = _printexpr(ns, node.operands[0])
@@ -185,7 +214,7 @@ def _printcomb(f, ns, display_run):
 		dummy_s = Signal(name_override="dummy_s")
 		r += syn_off
 		r += "reg " + _printsig(ns, dummy_s) + ";\n"
-		r += "initial " + ns.get_name(dummy_s) + " <= 1'd0;\n"
+		r += "initial " + _get_name(ns, dummy_s) + " <= 1'd0;\n"
 		r += syn_on
 
 		groups = group_by_targets(f.comb)
@@ -203,10 +232,10 @@ def _printcomb(f, ns, display_run):
 				if display_run:
 					r += "\t$display(\"Running comb block #" + str(n) + "\");\n"
 				for t in g[0]:
-					r += "\t" + ns.get_name(t) + " <= " + _printexpr(ns, t.reset)[0] + ";\n"
+					r += "\t" + _get_name(ns, t) + " <= " + _printexpr(ns, t.reset)[0] + ";\n"
 				r += _printnode(ns, _AT_NONBLOCKING, 1, g[1])
 				r += syn_off
-				r += "\t" + ns.get_name(dummy_d) + " <= " + ns.get_name(dummy_s) + ";\n"
+				r += "\t" + _get_name(ns, dummy_d) + " <= " + _get_name(ns, dummy_s) + ";\n"
 				r += syn_on
 				r += "end\n"
 	r += "\n"
@@ -219,7 +248,7 @@ def _printsync(f, ns):
 			r += "initial begin\n"
 			r += _printnode(ns, _AT_SIGNAL, 1, generate_reset(ResetSignal(k), v))
 			r += "end\n\n"
-		r += "always @(posedge " + ns.get_name(f.clock_domains[k].clk) + ") begin\n"
+		r += "always @(posedge " + _get_name(ns, f.clock_domains[k].clk) + ") begin\n"
 		r += _printnode(ns, _AT_SIGNAL, 1, v)
 		r += "end\n\n"
 	return r
@@ -279,7 +308,7 @@ def _printinit(f, ios, ns):
 	if signals:
 		r += "initial begin\n"
 		for s in sorted(signals, key=lambda x: x.huid):
-			r += "\t" + ns.get_name(s) + " <= " + _printexpr(ns, s.reset)[0] + ";\n"
+			r += "\t" + _get_name(ns, s) + " <= " + _printexpr(ns, s.reset)[0] + ";\n"
 		r += "end\n\n"
 	return r
 
